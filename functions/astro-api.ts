@@ -2,6 +2,8 @@ import express, { Request, Response } from 'express';
 import serverless from 'serverless-http';
 import * as sweph from 'sweph';
 import path from 'path';
+import cors from 'cors';
+
 
 // Define types
 interface PlanetPosition {
@@ -24,6 +26,9 @@ interface CalculationResult {
 // Initialize Express app
 const app = express();
 app.use(express.json());
+
+// Enable CORS for all routes
+app.use(cors());
 
 // Initialize sweph
 try {
