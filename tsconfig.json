@@ -9,8 +9,8 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "declaration": true,
-    "sourceMap": true
+    "declaration": false,
+    "sourceMap": false
   },
   "include": ["functions/**/*"],
   "exclude": ["node_modules", "dist"]
