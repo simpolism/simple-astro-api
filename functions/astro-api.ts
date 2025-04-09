@@ -71,13 +71,12 @@ async function calculatePositions(date: string, time: string, lat: number, lng: 
     
     // Get the timezone offset for this location and date
     const tzOffset = getTimezoneOffset(lat, lng, dateObj);
-    console.log(tzOffset);
     
     // Handle date adjustments when timezone offset causes day change
     let adjustedYear = year;
     let adjustedMonth = month;
     let adjustedDay = day;
-    let adjustedHour = hour - tzOffset;
+    let adjustedHour = hour + tzOffset;
     
     // Handle negative hours (previous day)
     if (adjustedHour < 0) {
@@ -135,7 +134,7 @@ async function calculatePositions(date: string, time: string, lat: number, lng: 
     });
     
     // Calculate houses (ascendant and midheaven) using Placidus system
-    const houses = sweph.houses(julday, lat, lng, 'P');
+    const houses = sweph.houses(julday, lat, lng, 'W');
     
     // Get timezone identifier
     const timezone = geoTz.find(lat, lng)[0] || 'UTC';
