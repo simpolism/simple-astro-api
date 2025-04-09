@@ -7,10 +7,6 @@ import path from 'path';
 interface PlanetPosition {
   name: string;
   longitude: number;
-  latitude: number;
-  distance: number;
-  longitudeSpeed: number;
-  sign: number;
 }
 
 interface CalculationResult {
@@ -23,21 +19,6 @@ interface CalculationResult {
     latitude: number;
     longitude: number;
   };
-}
-
-interface SwephCalcResult {
-  longitude: number;
-  latitude: number;
-  distance: number;
-  longitudeSpeed: number;
-  latitudeSpeed: number;
-  distanceSpeed: number;
-}
-
-interface SwephHousesResult {
-  ascendant: number;
-  mc: number;
-  houses: number[];
 }
 
 // Initialize Express app
@@ -64,43 +45,39 @@ async function calculatePositions(date: string, time: string, lat: number, lng: 
       month, 
       day, 
       hour + minute / 60 + second / 3600, 
-      sweph.GREG_CAL
+      sweph.constants.SE_GREG_CAL
     );
     
     // Define planets
     const planets = [
-      { id: sweph.SUN, name: 'Sun' },
-      { id: sweph.MOON, name: 'Moon' },
-      { id: sweph.MERCURY, name: 'Mercury' },
-      { id: sweph.VENUS, name: 'Venus' },
-      { id: sweph.MARS, name: 'Mars' },
-      { id: sweph.JUPITER, name: 'Jupiter' },
-      { id: sweph.SATURN, name: 'Saturn' },
-      { id: sweph.URANUS, name: 'Uranus' },
-      { id: sweph.NEPTUNE, name: 'Neptune' },
-      { id: sweph.PLUTO, name: 'Pluto' }
+      { id: sweph.constants.SE_SUN, name: 'Sun' },
+      { id: sweph.constants.SE_MOON, name: 'Moon' },
+      { id: sweph.constants.SE_MERCURY, name: 'Mercury' },
+      { id: sweph.constants.SE_VENUS, name: 'Venus' },
+      { id: sweph.constants.SE_MARS, name: 'Mars' },
+      { id: sweph.constants.SE_JUPITER, name: 'Jupiter' },
+      { id: sweph.constants.SE_SATURN, name: 'Saturn' },
+      { id: sweph.constants.SE_URANUS, name: 'Uranus' },
+      { id: sweph.constants.SE_NEPTUNE, name: 'Neptune' },
+      { id: sweph.constants.SE_PLUTO, name: 'Pluto' }
     ];
     
     // Calculate positions for each planet
     const planetPositions: PlanetPosition[] = planets.map(planet => {
-      const result = sweph.calc_ut(julday, planet.id, sweph.FLG_SWIEPH) as SwephCalcResult;
+      const result = sweph.calc_ut(julday, planet.id, sweph.constants.SEFLG_SWIEPH);
       return {
         name: planet.name,
-        longitude: result.longitude,
-        latitude: result.latitude,
-        distance: result.distance,
-        longitudeSpeed: result.longitudeSpeed,
-        sign: Math.floor(result.longitude / 30) + 1
+        longitude: result.data[0],
       };
     });
     
-    // Calculate houses (ascendant and midheaven)
-    const houses = sweph.houses(julday, lat, lng, 'P') as SwephHousesResult;
+    // Calculate houses (ascendant and midheaven) (whole sign)
+    const houses = sweph.houses(julday, lat, lng, 'W');
     
     return {
       planets: planetPositions,
-      ascendant: houses.ascendant,
-      midheaven: houses.mc,
+      ascendant: houses.data.points[0],
+      midheaven: houses.data.points[1],
       date: `${year}-${month}-${day}`,
       time: `${hour}:${minute}:${second}`,
       location: { latitude: lat, longitude: lng }
