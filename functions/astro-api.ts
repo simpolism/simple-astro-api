@@ -5,7 +5,6 @@ import path from 'path';
 import cors from 'cors';
 import geoTz from 'geo-tz';
 
-
 // Define types
 interface PlanetPosition {
   name: string;
@@ -44,46 +43,51 @@ function getTimezoneOffset(lat: number, lng: number, date: Date): number {
   // Get the timezone identifier for the coordinates
   const timezones = geoTz.find(lat, lng);
   const timezone = timezones[0]; // Use the first (most accurate) result
-  
+
   // If we couldn't find a timezone, default to UTC
   if (!timezone) {
     return 0;
   }
-  
+
   // Calculate UTC offset in hours (including DST)
   const localDate = new Date(date.toLocaleString('en-US', { timeZone: timezone }));
   const utcDate = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
   const offsetMinutes = (utcDate.getTime() - localDate.getTime()) / 60000;
-  
+
   // Convert minutes to hours (standard timezone format)
   return offsetMinutes / 60;
 }
 
 // Helper function to calculate positions
-async function calculatePositions(date: string, time: string, lat: number, lng: number): Promise<CalculationResult> {
+async function calculatePositions(
+  date: string,
+  time: string,
+  lat: number,
+  lng: number
+): Promise<CalculationResult> {
   try {
     // Parse date and time
     const [year, month, day] = date.split('-').map(Number);
     const [hour, minute, second = 0] = time.split(':').map(Number);
-    
+
     // Create a date object for timezone calculations
     const dateObj = new Date(`${date}T${time}`);
-    
+
     // Get the timezone offset for this location and date
     const tzOffset = getTimezoneOffset(lat, lng, dateObj);
-    
+
     // Handle date adjustments when timezone offset causes day change
     let adjustedYear = year;
     let adjustedMonth = month;
     let adjustedDay = day;
     let adjustedHour = hour + tzOffset;
-    
+
     // Handle negative hours (previous day)
     if (adjustedHour < 0) {
       // Create a new Date object and subtract one day
       const prevDay = new Date(dateObj);
       prevDay.setUTCDate(prevDay.getUTCDate() - 1);
-      
+
       adjustedYear = prevDay.getUTCFullYear();
       adjustedMonth = prevDay.getUTCMonth() + 1; // JavaScript months are 0-indexed
       adjustedDay = prevDay.getUTCDate();
@@ -94,22 +98,22 @@ async function calculatePositions(date: string, time: string, lat: number, lng: 
       // Create a new Date object and add one day
       const nextDay = new Date(dateObj);
       nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-      
+
       adjustedYear = nextDay.getUTCFullYear();
       adjustedMonth = nextDay.getUTCMonth() + 1; // JavaScript months are 0-indexed
       adjustedDay = nextDay.getUTCDate();
       adjustedHour -= 24; // Subtract 24 hours to bring it into range
     }
-    
+
     // Convert to Julian day with timezone-adjusted values
     const julday = sweph.julday(
-      adjustedYear, 
-      adjustedMonth, 
-      adjustedDay, 
-      adjustedHour + minute / 60 + second / 3600, 
+      adjustedYear,
+      adjustedMonth,
+      adjustedDay,
+      adjustedHour + minute / 60 + second / 3600,
       sweph.constants.SE_GREG_CAL
     );
-    
+
     // Define planets
     const planets = [
       { id: sweph.constants.SE_SUN, name: 'Sun' },
@@ -121,24 +125,29 @@ async function calculatePositions(date: string, time: string, lat: number, lng: 
       { id: sweph.constants.SE_SATURN, name: 'Saturn' },
       { id: sweph.constants.SE_URANUS, name: 'Uranus' },
       { id: sweph.constants.SE_NEPTUNE, name: 'Neptune' },
-      { id: sweph.constants.SE_PLUTO, name: 'Pluto' }
+      { id: sweph.constants.SE_PLUTO, name: 'Pluto' },
     ];
-    
+
     // Calculate positions for each planet
-    const planetPositions: PlanetPosition[] = planets.map(planet => {
-      const result = sweph.calc_ut(julday, planet.id, sweph.constants.SEFLG_SWIEPH);
+    const planetPositions: PlanetPosition[] = planets.map((planet) => {
+      const result = sweph.calc_ut(
+        julday,
+        planet.id,
+        sweph.constants.SEFLG_SWIEPH | sweph.constants.SEFLG_SPEED
+      );
       return {
         name: planet.name,
         longitude: result.data[0],
       };
     });
-    
-    // Calculate houses (ascendant and midheaven) using Placidus system
+
+    // Calculate houses (ascendant and midheaven) using whole signs
+    // TODO: add other house system options
     const houses = sweph.houses(julday, lat, lng, 'W');
-    
+
     // Get timezone identifier
     const timezone = geoTz.find(lat, lng)[0] || 'UTC';
-    
+
     return {
       planets: planetPositions,
       ascendant: houses.data.points[0],
@@ -146,7 +155,7 @@ async function calculatePositions(date: string, time: string, lat: number, lng: 
       date: `${year}-${month}-${day}`,
       time: `${hour}:${minute}:${second}`,
       location: { latitude: lat, longitude: lng },
-      timezone: timezone
+      timezone: timezone,
     };
   } catch (error: any) {
     throw new Error(`Calculation error: ${error.message}`);
@@ -157,18 +166,19 @@ async function calculatePositions(date: string, time: string, lat: number, lng: 
 app.get('/api/positions', async (req: Request, res: Response) => {
   try {
     const { date, time, lat, lng } = req.query;
-    
+
     // Validate parameters
     if (!date || !time || !lat || !lng) {
-      return res.status(400).json({ 
-        error: 'Missing required parameters: date, time, lat, lng' 
+      return res.status(400).json({
+        error: 'Missing required parameters: date, time, lat, lng',
       });
     }
-    
+
+    // TODO: allow passing location rather than lat/lng for easier API access
     const result = await calculatePositions(
-      date as string, 
-      time as string, 
-      parseFloat(lat as string), 
+      date as string,
+      time as string,
+      parseFloat(lat as string),
       parseFloat(lng as string)
     );
     return res.json(result);
