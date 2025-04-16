@@ -2,6 +2,9 @@
   command = "npm run build"
   functions = "dist/functions"
 
+[dev]
+  autoLaunch = false
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/astro-api/:splat"
