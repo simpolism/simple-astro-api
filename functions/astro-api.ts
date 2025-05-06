@@ -195,7 +195,7 @@ async function calculatePositions(
 // Main endpoint for positions
 app.get('/api/positions', async (req: Request, res: Response) => {
   try {
-    const { date, time, lat, lng, houseSystem } = req.query; // Added houseSystem
+    const { date, time, lat, lng, house_system } = req.query;
 
     // Validate parameters
     if (!date || !time || !lat || !lng) {
@@ -210,7 +210,7 @@ app.get('/api/positions', async (req: Request, res: Response) => {
       time as string,
       parseFloat(lat as string),
       parseFloat(lng as string),
-      houseSystem as string | undefined
+      house_system as string | undefined
     );
     return res.json(result);
   } catch (error: any) {
