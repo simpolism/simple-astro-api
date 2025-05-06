@@ -9,12 +9,15 @@ import geoTz from 'geo-tz';
 interface PlanetPosition {
   name: string;
   longitude: number;
+  speed: number;
 }
 
 interface CalculationResult {
   planets: PlanetPosition[];
   ascendant: number;
   midheaven: number;
+  houseCusps: number[];
+  houseSystemName: string;
   date: string;
   time: string;
   location: {
@@ -22,6 +25,26 @@ interface CalculationResult {
     longitude: number;
   };
   timezone?: string;
+}
+
+// House System Names
+const HOUSE_SYSTEM_NAMES: { [key: string]: string } = {
+  W: 'Whole Sign',
+  P: 'Placidus',
+  K: 'Koch',
+  O: 'Porphyry',
+  R: 'Regiomontanus',
+  C: 'Campanus',
+  E: 'Equal',
+  V: 'Vehlow Equal',
+  A: 'Alcabitius',
+  X: 'Axial Rotation System / Meridian Houses',
+  M: 'Morinus',
+  B: 'APC Houses',
+};
+
+function getHouseSystemName(systemChar: string): string {
+  return HOUSE_SYSTEM_NAMES[systemChar.toUpperCase()] || `Unknown (${systemChar})`;
 }
 
 // Initialize Express app
@@ -63,7 +86,8 @@ async function calculatePositions(
   date: string,
   time: string,
   lat: number,
-  lng: number
+  lng: number,
+  houseSystemChar = 'W' // Default to whole sign
 ): Promise<CalculationResult> {
   try {
     // Parse date and time
@@ -138,20 +162,26 @@ async function calculatePositions(
       return {
         name: planet.name,
         longitude: result.data[0],
+        speed: result.data[3],
       };
     });
 
-    // Calculate houses (ascendant and midheaven) using whole signs
-    // TODO: add other house system options
-    const houses = sweph.houses(julday, lat, lng, 'W');
+    // Calculate houses (ascendant and midheaven)
+    const houses = sweph.houses(julday, lat, lng, houseSystemChar.toUpperCase());
 
     // Get timezone identifier
     const timezone = geoTz.find(lat, lng)[0] || 'UTC';
 
+    // Extract house cusps and determine house system name
+    const rawCusps = houses.data.houses;
+    const currentHouseSystemName = getHouseSystemName(houseSystemChar);
+
     return {
       planets: planetPositions,
       ascendant: houses.data.points[0],
-      midheaven: houses.data.points[1],
+      midheaven: houses.data.points[1], // Midheaven is at index 1
+      houseCusps: rawCusps,
+      houseSystemName: currentHouseSystemName,
       date: `${year}-${month}-${day}`,
       time: `${hour}:${minute}:${second}`,
       location: { latitude: lat, longitude: lng },
@@ -165,7 +195,7 @@ async function calculatePositions(
 // Main endpoint for positions
 app.get('/api/positions', async (req: Request, res: Response) => {
   try {
-    const { date, time, lat, lng } = req.query;
+    const { date, time, lat, lng, houseSystem } = req.query; // Added houseSystem
 
     // Validate parameters
     if (!date || !time || !lat || !lng) {
@@ -179,7 +209,8 @@ app.get('/api/positions', async (req: Request, res: Response) => {
       date as string,
       time as string,
       parseFloat(lat as string),
-      parseFloat(lng as string)
+      parseFloat(lng as string),
+      houseSystem as string | undefined
     );
     return res.json(result);
   } catch (error: any) {
