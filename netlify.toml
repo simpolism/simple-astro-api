@@ -3,7 +3,7 @@
   functions = "dist/functions"
 
 [build.environment]
-  NODE_VERSION = "16"
+  NODE_VERSION = "18"
   PYTHON = "/usr/bin/python3"
 
 [dev]
