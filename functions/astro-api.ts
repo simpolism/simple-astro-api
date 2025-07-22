@@ -150,6 +150,7 @@ async function calculatePositions(
       { id: sweph.constants.SE_URANUS, name: 'Uranus' },
       { id: sweph.constants.SE_NEPTUNE, name: 'Neptune' },
       { id: sweph.constants.SE_PLUTO, name: 'Pluto' },
+      { id: sweph.constants.SE_TRUE_NODE, name: 'North Node' },
     ];
 
     // Calculate positions for each planet
