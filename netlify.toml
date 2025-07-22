@@ -17,3 +17,10 @@
     Access-Control-Allow-Origin = "*"
     Access-Control-Allow-Methods = "GET, POST, OPTIONS"
     Access-Control-Allow-Headers = "Origin, X-Requested-With, Content-Type, Accept"
+
+[functions]
+  # Specifies `esbuild` for functions bundling
+  node_bundler = "esbuild"
+
+  # Flags "sweph" as an external node module for all functions
+  external_node_modules = ["sweph"]
