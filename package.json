@@ -26,6 +26,7 @@
   },
   "scripts": {
     "dev": "netlify dev",
+    "prebuild": "npm rebuild sweph",
     "build": "tsc",
     "start": "node dist/functions/astro-api.js",
     "lint": "eslint . --ext .ts",

@@ -1,6 +1,11 @@
 [build]
-  command = "npm run build"
+  command = "npm rebuild sweph && npm run build"
   functions = "dist/functions"
+  
+[build.environment]
+  PYTHON = "/usr/bin/python3"
+  CC = "gcc"
+  CXX = "g++"
 
 [dev]
   autoLaunch = false
