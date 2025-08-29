@@ -7,11 +7,14 @@ DEFS_Debug := \
 	'-DUSING_UV_SHARED=1' \
 	'-DUSING_V8_SHARED=1' \
 	'-DV8_DEPRECATION_WARNINGS=1' \
-	'-D_LARGEFILE_SOURCE' \
+	'-D_GLIBCXX_USE_CXX11_ABI=1' \
 	'-D_FILE_OFFSET_BITS=64' \
+	'-D_LARGEFILE_SOURCE' \
+	'-D__STDC_FORMAT_MACROS' \
+	'-DOPENSSL_NO_PINSHARED' \
+	'-DOPENSSL_THREADS' \
 	'-DDEBUG' \
-	'-D_DEBUG' \
-	'-DV8_ENABLE_CHECKS'
+	'-D_DEBUG'
 
 # Flags passed to all source files.
 CFLAGS_Debug := \
@@ -21,7 +24,6 @@ CFLAGS_Debug := \
 	-Wextra \
 	-Wno-unused-parameter \
 	-m64 \
-	-fPIC \
 	-g \
 	-O0
 
@@ -32,24 +34,29 @@ CFLAGS_C_Debug :=
 CFLAGS_CC_Debug := \
 	-fno-rtti \
 	-fno-exceptions \
-	-std=gnu++1y
+	-fno-strict-aliasing \
+	-std=gnu++17
 
 INCS_Debug := \
-	-I/usr/include/nodejs/include/node \
-	-I/usr/include/nodejs/src \
-	-I/usr/include/nodejs/deps/openssl/config \
-	-I/usr/include/nodejs/deps/openssl/openssl/include \
-	-I/usr/include/nodejs/deps/uv/include \
-	-I/usr/include/nodejs/deps/zlib \
-	-I/usr/include/nodejs/deps/v8/include
+	-I/root/.cache/node-gyp/22.19.0/include/node \
+	-I/root/.cache/node-gyp/22.19.0/src \
+	-I/root/.cache/node-gyp/22.19.0/deps/openssl/config \
+	-I/root/.cache/node-gyp/22.19.0/deps/openssl/openssl/include \
+	-I/root/.cache/node-gyp/22.19.0/deps/uv/include \
+	-I/root/.cache/node-gyp/22.19.0/deps/zlib \
+	-I/root/.cache/node-gyp/22.19.0/deps/v8/include
 
 DEFS_Release := \
 	'-DNODE_GYP_MODULE_NAME=swisseph' \
 	'-DUSING_UV_SHARED=1' \
 	'-DUSING_V8_SHARED=1' \
 	'-DV8_DEPRECATION_WARNINGS=1' \
+	'-D_GLIBCXX_USE_CXX11_ABI=1' \
+	'-D_FILE_OFFSET_BITS=64' \
 	'-D_LARGEFILE_SOURCE' \
-	'-D_FILE_OFFSET_BITS=64'
+	'-D__STDC_FORMAT_MACROS' \
+	'-DOPENSSL_NO_PINSHARED' \
+	'-DOPENSSL_THREADS'
 
 # Flags passed to all source files.
 CFLAGS_Release := \
@@ -59,7 +66,6 @@ CFLAGS_Release := \
 	-Wextra \
 	-Wno-unused-parameter \
 	-m64 \
-	-fPIC \
 	-O3 \
 	-fno-omit-frame-pointer
 
@@ -70,16 +76,17 @@ CFLAGS_C_Release :=
 CFLAGS_CC_Release := \
 	-fno-rtti \
 	-fno-exceptions \
-	-std=gnu++1y
+	-fno-strict-aliasing \
+	-std=gnu++17
 
 INCS_Release := \
-	-I/usr/include/nodejs/include/node \
-	-I/usr/include/nodejs/src \
-	-I/usr/include/nodejs/deps/openssl/config \
-	-I/usr/include/nodejs/deps/openssl/openssl/include \
-	-I/usr/include/nodejs/deps/uv/include \
-	-I/usr/include/nodejs/deps/zlib \
-	-I/usr/include/nodejs/deps/v8/include
+	-I/root/.cache/node-gyp/22.19.0/include/node \
+	-I/root/.cache/node-gyp/22.19.0/src \
+	-I/root/.cache/node-gyp/22.19.0/deps/openssl/config \
+	-I/root/.cache/node-gyp/22.19.0/deps/openssl/openssl/include \
+	-I/root/.cache/node-gyp/22.19.0/deps/uv/include \
+	-I/root/.cache/node-gyp/22.19.0/deps/zlib \
+	-I/root/.cache/node-gyp/22.19.0/deps/v8/include
 
 OBJS := \
 	$(obj).target/$(TARGET)/swisseph/swecl.o \
@@ -126,16 +133,14 @@ LDFLAGS_Release := \
 	-rdynamic \
 	-m64
 
-LIBS := \
-	-lnode
+LIBS :=
 
 $(obj).target/swisseph.a: GYP_LDFLAGS := $(LDFLAGS_$(BUILDTYPE))
 $(obj).target/swisseph.a: LIBS := $(LIBS)
 $(obj).target/swisseph.a: TOOLSET := $(TOOLSET)
-$(obj).target/swisseph.a: $(OBJS) FORCE_DO_CMD
-	$(call do_cmd,alink)
+$(obj).target/swisseph.a: $(OBJS)
+	$(call create_archive,$@,$^)
 
-all_deps += $(obj).target/swisseph.a
 # Add target alias
 .PHONY: swisseph
 swisseph: $(obj).target/swisseph.a
