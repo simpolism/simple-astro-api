@@ -5,6 +5,9 @@
 [dev]
   autoLaunch = false
 
+[functions]
+  external_node_modules = ["sweph"]
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/astro-api/:splat"
