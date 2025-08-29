@@ -5,9 +5,8 @@
 [dev]
   autoLaunch = false
 
-[functions]
-  node_bundler = "esbuild"
-  external_node_modules = ["sweph"]
+[[plugins]]
+  package = "/plugins/sweph-clone"
 
 [[redirects]]
   from = "/api/*"

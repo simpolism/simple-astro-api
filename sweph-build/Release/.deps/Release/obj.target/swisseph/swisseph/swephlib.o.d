@@ -1,0 +1,10 @@
+cmd_Release/obj.target/swisseph/swisseph/swephlib.o := cc -o Release/obj.target/swisseph/swisseph/swephlib.o ../swisseph/swephlib.c '-DNODE_GYP_MODULE_NAME=swisseph' '-DUSING_UV_SHARED=1' '-DUSING_V8_SHARED=1' '-DV8_DEPRECATION_WARNINGS=1' '-D_LARGEFILE_SOURCE' '-D_FILE_OFFSET_BITS=64' -I/usr/include/nodejs/include/node -I/usr/include/nodejs/src -I/usr/include/nodejs/deps/openssl/config -I/usr/include/nodejs/deps/openssl/openssl/include -I/usr/include/nodejs/deps/uv/include -I/usr/include/nodejs/deps/zlib -I/usr/include/nodejs/deps/v8/include  -fPIC -pthread -Wall -Wextra -Wno-unused-parameter -m64 -fPIC -O3 -fno-omit-frame-pointer  -MMD -MF ./Release/.deps/Release/obj.target/swisseph/swisseph/swephlib.o.d.raw   -c
+Release/obj.target/swisseph/swisseph/swephlib.o: ../swisseph/swephlib.c \
+ ../swisseph/swephexp.h ../swisseph/sweodef.h ../swisseph/sweph.h \
+ ../swisseph/swephlib.h ../swisseph/swenut2000a.h
+../swisseph/swephlib.c:
+../swisseph/swephexp.h:
+../swisseph/sweodef.h:
+../swisseph/sweph.h:
+../swisseph/swephlib.h:
+../swisseph/swenut2000a.h:
