@@ -81,6 +81,202 @@ function getTimezoneOffset(lat: number, lng: number, date: Date): number {
   return offsetMinutes / 60;
 }
 
+interface TimeConversionResult {
+  utcDate: Date;
+  timezone: string;
+  tzOffset: number;
+  adjusted: {
+    year: number;
+    month: number;
+    day: number;
+    hour: number;
+    minute: number;
+    second: number;
+  };
+}
+
+function convertLocalToUtc(
+  date: string,
+  time: string,
+  lat: number,
+  lng: number
+): TimeConversionResult {
+  const [year, month, day] = date.split('-').map(Number);
+  const [hour, minute, second = 0] = time.split(':').map(Number);
+
+  const dateObj = new Date(`${date}T${time}`);
+  const tzOffset = getTimezoneOffset(lat, lng, isNaN(dateObj.getTime()) ? new Date(date) : dateObj);
+
+  let adjustedYear = year;
+  let adjustedMonth = month;
+  let adjustedDay = day;
+  let adjustedHour = hour + tzOffset;
+
+  while (adjustedHour < 0) {
+    const prevDay = new Date(Date.UTC(adjustedYear, adjustedMonth - 1, adjustedDay));
+    prevDay.setUTCDate(prevDay.getUTCDate() - 1);
+    adjustedYear = prevDay.getUTCFullYear();
+    adjustedMonth = prevDay.getUTCMonth() + 1;
+    adjustedDay = prevDay.getUTCDate();
+    adjustedHour += 24;
+  }
+
+  while (adjustedHour >= 24) {
+    const nextDay = new Date(Date.UTC(adjustedYear, adjustedMonth - 1, adjustedDay));
+    nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+    adjustedYear = nextDay.getUTCFullYear();
+    adjustedMonth = nextDay.getUTCMonth() + 1;
+    adjustedDay = nextDay.getUTCDate();
+    adjustedHour -= 24;
+  }
+
+  const timezone = geoTz.find(lat, lng)[0] || 'UTC';
+
+  const totalHours = adjustedHour + minute / 60 + second / 3600;
+  const utcMillis =
+    Date.UTC(adjustedYear, adjustedMonth - 1, adjustedDay) + totalHours * 3600 * 1000;
+  const utcDate = new Date(utcMillis);
+
+  return {
+    utcDate,
+    timezone,
+    tzOffset,
+    adjusted: {
+      year: adjustedYear,
+      month: adjustedMonth,
+      day: adjustedDay,
+      hour: adjustedHour,
+      minute,
+      second,
+    },
+  };
+}
+
+function formatDateTimeInTimeZone(date: Date, timeZone: string) {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(date);
+  const getPart = (type: string) => parts.find((p) => p.type === type)?.value ?? '00';
+
+  return {
+    date: `${getPart('year')}-${getPart('month')}-${getPart('day')}`,
+    time: `${getPart('hour')}:${getPart('minute')}:${getPart('second')}`,
+  };
+}
+
+function getSunLongitudeAt(date: Date): number {
+  const julday = sweph.julday(
+    date.getUTCFullYear(),
+    date.getUTCMonth() + 1,
+    date.getUTCDate(),
+    date.getUTCHours() +
+      date.getUTCMinutes() / 60 +
+      date.getUTCSeconds() / 3600 +
+      date.getUTCMilliseconds() / 3600000,
+    sweph.constants.SE_GREG_CAL
+  );
+
+  const result = sweph.calc_ut(
+    julday,
+    sweph.constants.SE_SUN,
+    sweph.constants.SEFLG_SWIEPH | sweph.constants.SEFLG_SPEED
+  );
+
+  return result.data[0];
+}
+
+function solarArcDifference(personalityLongitude: number, candidateLongitude: number): number {
+  return (personalityLongitude - candidateLongitude + 360) % 360;
+}
+
+function findDesignUtcDate(
+  birthUtcDate: Date,
+  personalitySunLongitude: number
+): { utcDate: Date; sunLongitude: number; solarArcDegrees: number } {
+  const targetArc = 88;
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  let lookbackDays = 95;
+  let lowTime = birthUtcDate.getTime() - lookbackDays * dayMs;
+  let lowLongitude = getSunLongitudeAt(new Date(lowTime));
+  let lowDiff = solarArcDifference(personalitySunLongitude, lowLongitude);
+
+  while (lowDiff < targetArc && lookbackDays < 200) {
+    lookbackDays += 10;
+    lowTime = birthUtcDate.getTime() - lookbackDays * dayMs;
+    lowLongitude = getSunLongitudeAt(new Date(lowTime));
+    lowDiff = solarArcDifference(personalitySunLongitude, lowLongitude);
+  }
+
+  if (lowDiff < targetArc) {
+    throw new Error('Unable to determine design moment within search window.');
+  }
+
+  let highTime = birthUtcDate.getTime();
+  let bestDate = new Date(lowTime);
+  let bestLongitude = lowLongitude;
+  let bestDiff = Math.abs(lowDiff - targetArc);
+
+  for (let i = 0; i < 60; i++) {
+    const midTime = (lowTime + highTime) / 2;
+    const midDate = new Date(midTime);
+    const midLongitude = getSunLongitudeAt(midDate);
+    const midDiff = solarArcDifference(personalitySunLongitude, midLongitude);
+    const midDelta = Math.abs(midDiff - targetArc);
+
+    if (midDelta < bestDiff) {
+      bestDiff = midDelta;
+      bestDate = midDate;
+      bestLongitude = midLongitude;
+    }
+
+    if (midDiff > targetArc) {
+      lowTime = midTime;
+    } else {
+      highTime = midTime;
+    }
+  }
+
+  const lowDateFinal = new Date(lowTime);
+  const lowLongitudeFinal = getSunLongitudeAt(lowDateFinal);
+  const lowDeltaFinal = Math.abs(
+    solarArcDifference(personalitySunLongitude, lowLongitudeFinal) - targetArc
+  );
+  if (lowDeltaFinal < bestDiff) {
+    bestDate = lowDateFinal;
+    bestLongitude = lowLongitudeFinal;
+    bestDiff = lowDeltaFinal;
+  }
+
+  const highDateFinal = new Date(highTime);
+  const highLongitudeFinal = getSunLongitudeAt(highDateFinal);
+  const highDeltaFinal = Math.abs(
+    solarArcDifference(personalitySunLongitude, highLongitudeFinal) - targetArc
+  );
+  if (highDeltaFinal < bestDiff) {
+    bestDate = highDateFinal;
+    bestLongitude = highLongitudeFinal;
+    bestDiff = highDeltaFinal;
+  }
+
+  const finalArc = solarArcDifference(personalitySunLongitude, bestLongitude);
+
+  return {
+    utcDate: bestDate,
+    sunLongitude: bestLongitude,
+    solarArcDegrees: finalArc,
+  };
+}
+
 // Helper function to calculate positions
 async function calculatePositions(
   date: string,
@@ -90,44 +286,11 @@ async function calculatePositions(
   houseSystemChar = 'W' // Default to whole sign
 ): Promise<CalculationResult> {
   try {
-    // Parse date and time
-    const [year, month, day] = date.split('-').map(Number);
-    const [hour, minute, second = 0] = time.split(':').map(Number);
-
-    // Create a date object for timezone calculations
-    const dateObj = new Date(`${date}T${time}`);
-
-    // Get the timezone offset for this location and date
-    const tzOffset = getTimezoneOffset(lat, lng, dateObj);
-
-    // Handle date adjustments when timezone offset causes day change
-    let adjustedYear = year;
-    let adjustedMonth = month;
-    let adjustedDay = day;
-    let adjustedHour = hour + tzOffset;
-
-    // Handle negative hours (previous day)
-    if (adjustedHour < 0) {
-      // Create a new Date object and subtract one day
-      const prevDay = new Date(dateObj);
-      prevDay.setUTCDate(prevDay.getUTCDate() - 1);
-
-      adjustedYear = prevDay.getUTCFullYear();
-      adjustedMonth = prevDay.getUTCMonth() + 1; // JavaScript months are 0-indexed
-      adjustedDay = prevDay.getUTCDate();
-      adjustedHour += 24; // Add 24 hours to make it positive
-    }
-    // Handle hours >= 24 (next day)
-    else if (adjustedHour >= 24) {
-      // Create a new Date object and add one day
-      const nextDay = new Date(dateObj);
-      nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-
-      adjustedYear = nextDay.getUTCFullYear();
-      adjustedMonth = nextDay.getUTCMonth() + 1; // JavaScript months are 0-indexed
-      adjustedDay = nextDay.getUTCDate();
-      adjustedHour -= 24; // Subtract 24 hours to bring it into range
-    }
+    const timeConversion = convertLocalToUtc(date, time, lat, lng);
+    const {
+      adjusted: { year: adjustedYear, month: adjustedMonth, day: adjustedDay, hour: adjustedHour, minute, second },
+      timezone,
+    } = timeConversion;
 
     // Convert to Julian day with timezone-adjusted values
     const julday = sweph.julday(
@@ -171,7 +334,7 @@ async function calculatePositions(
     const houses = sweph.houses(julday, lat, lng, houseSystemChar.toUpperCase());
 
     // Get timezone identifier
-    const timezone = geoTz.find(lat, lng)[0] || 'UTC';
+    const timezoneId = timezone;
 
     // Extract house cusps and determine house system name
     const rawCusps = houses.data.houses;
@@ -183,14 +346,64 @@ async function calculatePositions(
       midheaven: houses.data.points[1], // Midheaven is at index 1
       houseCusps: rawCusps,
       houseSystemName: currentHouseSystemName,
-      date: `${year}-${month}-${day}`,
-      time: `${hour}:${minute}:${second}`,
+      date,
+      time,
       location: { latitude: lat, longitude: lng },
-      timezone: timezone,
+      timezone: timezoneId,
     };
   } catch (error: any) {
     throw new Error(`Calculation error: ${error.message}`);
   }
+}
+
+interface CombinedCalculationResult {
+  personality: CalculationResult;
+  design: CalculationResult;
+  metadata: {
+    designUtcDateTime: string;
+    solarArcDegrees: number;
+    personalitySunLongitude: number;
+    designSunLongitude: number;
+  };
+}
+
+async function calculatePersonalityAndDesign(
+  date: string,
+  time: string,
+  lat: number,
+  lng: number,
+  houseSystemChar = 'W'
+): Promise<CombinedCalculationResult> {
+  const personality = await calculatePositions(date, time, lat, lng, houseSystemChar);
+
+  const sun = personality.planets.find((planet) => planet.name === 'Sun');
+  if (!sun) {
+    throw new Error('Unable to determine Sun longitude for personality chart.');
+  }
+
+  const timeConversion = convertLocalToUtc(date, time, lat, lng);
+  const designMoment = findDesignUtcDate(timeConversion.utcDate, sun.longitude);
+
+  const timezoneId = personality.timezone || timeConversion.timezone;
+  const designLocal = formatDateTimeInTimeZone(designMoment.utcDate, timezoneId);
+  const design = await calculatePositions(
+    designLocal.date,
+    designLocal.time,
+    lat,
+    lng,
+    houseSystemChar
+  );
+
+  return {
+    personality,
+    design,
+    metadata: {
+      designUtcDateTime: designMoment.utcDate.toISOString(),
+      solarArcDegrees: designMoment.solarArcDegrees,
+      personalitySunLongitude: sun.longitude,
+      designSunLongitude: designMoment.sunLongitude,
+    },
+  };
 }
 
 // Main endpoint for positions
@@ -213,6 +426,30 @@ app.get('/api/positions', async (req: Request, res: Response) => {
       parseFloat(lng as string),
       house_system as string | undefined
     );
+    return res.json(result);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/positions-with-design', async (req: Request, res: Response) => {
+  try {
+    const { date, time, lat, lng, house_system } = req.query;
+
+    if (!date || !time || !lat || !lng) {
+      return res.status(400).json({
+        error: 'Missing required parameters: date, time, lat, lng',
+      });
+    }
+
+    const result = await calculatePersonalityAndDesign(
+      date as string,
+      time as string,
+      parseFloat(lat as string),
+      parseFloat(lng as string),
+      house_system as string | undefined
+    );
+
     return res.json(result);
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
