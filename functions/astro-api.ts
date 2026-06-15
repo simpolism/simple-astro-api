@@ -4,6 +4,7 @@ import * as sweph from 'sweph';
 import path from 'path';
 import cors from 'cors';
 import geoTz from 'geo-tz';
+import { registerChartEndpoint } from './chart-endpoint';
 
 // Define types
 interface PlanetPosition {
@@ -459,6 +460,14 @@ app.get('/api/positions-with-design', async (req: Request, res: Response) => {
 // Health check endpoint
 app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'Astro API is running' });
+});
+
+// Unified chart endpoint (additive). Reuses the calculation functions above;
+// registered before the 404 handler so it resolves. Does not alter the
+// existing /api/positions or /api/positions-with-design routes.
+registerChartEndpoint(app, {
+  calculatePositions,
+  calculatePersonalityAndDesign,
 });
 
 // Handle 404
